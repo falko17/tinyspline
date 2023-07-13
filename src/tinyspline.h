@@ -3048,7 +3048,101 @@ ts_chord_lengths_equidistant_knot_seq(const tsReal *knots,
                                       tsStatus *status);
 /*! @} */
 
+/*! @name Geometry
+ *
+ * Functions for creating geometries from splines.
+ *
+ * @{
+ */
+/**
+ * Generates a tubular mesh around the given \p frames.
+ * It will consist of \p tubular_segments segments along the tube,
+ * and \p radial_segments segments per tubular segment.
+ *
+ * @note Consecutive frames with a distance not greater than #TS_LENGTH_ZERO
+ *       will be ignored, as each tubular segment created between two frames
+ *       must have a positive length. If such frames are encountered,
+ *       \p tubular_segments will be decreased accordingly.
+ *
+ * @pre \p frames must contain at least \p tubular_segments + 1 entries.
+ * @pre \p tubular_segments must be at least 1.
+ * @pre \p radial_segments must be at least 3.
+ * @pre \p vertices must be at least of length
+ *         <tt>(tubular_segments + 1) * (radial_segments + 1) * 3</tt>.
+ * @pre \p normals must be at least of length
+ *         <tt>(tubular_segments + 1) * (radial_segments + 1) * 3</tt>.
+ * @pre \p tangents must be at least of length
+ *         <tt>(tubular_segments + 1) * (radial_segments + 1) * 4</tt>.
+ * @pre \p uvs must be at least of length
+ *         <tt>(tubular_segments + 1) * (radial_segments + 1) * 2</tt>.
+ * @pre \p indices must be at least of length
+ *         <tt>tubular_segments * radial_segments * 6</tt>.
+ *
+ * @post \p tubular_segments contains the number of tubular segments
+ *          that have been created. Note that this is also the number
+ *          used in the calculations below.
+ * @post \p tubular_segments is not greater than the value that was passed in.
+ * @post \p vertices contains
+ *        <tt>(tubular_segments + 1) * (radial_segments + 1)</tt> vertices,
+ *        each being three-dimensional.
+ * @post \p normals contains
+ *        <tt>(tubular_segments + 1) * (radial_segments + 1)</tt> normals,
+ *        each being three-dimensional.
+ * @post \p tangents contains
+ *        <tt>(tubular_segments + 1) * (radial_segments + 1)</tt> tangents,
+ *        each being four-dimensional.
+ * @post \p uvs contains
+ *        <tt>(tubular_segments + 1) * (radial_segments + 1)</tt>
+ *        UV coordinates, each being two-dimensional.
+ * @post \p indices contains
+ *        <tt>tubular_segments * radial_segments * 6</tt>
+ *        indices, each referring to a valid index within \p vertices.
+ *
+ * @param[in] frames
+ * 	Frames of the spline around which the tube shall be constructed.
+ * @param[in, out] tubular_segments
+ * 	Number of tubular segments.
+ * 	Note that the actual number of tubular segments may differ from the number
+ * 	that was passed in, hence, this is also an out parameter.
+ * @param[in] radial_segments
+ * 	Number of radial segments, that is, the segments per tubular segment.
+ * @param[in] radius
+ * 	Radius of the constructed tube.
+ * @param[out] vertices
+ * 	Contains the vertices for the tubular mesh.
+ * @param[out] normals
+ * 	Contains the normals for the tubular mesh.
+ * @param[out] tangents
+ * 	Contains the tangents for the tubular mesh.
+ * @param[out] uvs
+ * 	Contains the UV coordinates for the tubular mesh.
+ * @param[out] indices
+ * 	Contains indices that connect the \p vertices to triangles,
+ * 	such that \p radial_segments rectangles (consisting of 2 triangles each)
+ * 	are constructed around each tubular segment.
+ * @param[out] status
+ * 	The status of this function. May be NULL.
+ *
+ * @return TS_SUCCESS
+ * 	On success.
+ * @return TS_NUM_POINTS
+ * 	If \p tubular_segments is 0 or if \p radial_segments is less than 3.
+ * @return TS_MALLOC
+ * 	If we are out of memory.
+ */
+tsError TINYSPLINE_API
+ts_frame_create_tube(const tsFrame *frames,
+		             size_t *tubular_segments,
+					 size_t radial_segments,
+					 tsReal radius,
+					 tsReal *vertices,
+					 tsReal *normals,
+					 tsReal *tangents,
+					 tsReal *uvs,
+					 size_t *indices,
+					 tsStatus *status);
 
+/*! @} */
 
 /*! @name Utility Functions
  *

@@ -3,7 +3,7 @@
 #include "parson.h" /* serialization */
 
 #include <stdlib.h> /* malloc, free */
-#include <math.h>   /* fabs, sqrt, acos */
+#include <math.h>   /* fabs, sqrt, acos, sin, cos */
 #include <string.h> /* memcpy, memmove */
 #include <stdio.h>  /* FILE, fopen */
 #include <stdarg.h> /* varargs */
@@ -3439,6 +3439,113 @@ ts_chord_lengths_equidistant_knot_seq(const tsReal *knots,
 		knot_seq[num_knot_seq - 1] = knots[num - 1];
 		knot_seq[0] = knots[0];
 	TS_END_TRY_RETURN(err)
+}
+/*! @} */
+
+
+
+/*! @name Geometry
+ *
+ * @{
+ */
+
+tsError
+ts_frame_create_tube(const tsFrame *frames,
+					 size_t *tubular_segments,
+					 size_t radial_segments,
+					 tsReal radius,
+					 tsReal *vertices,
+					 tsReal *normals,
+					 tsReal *tangents,
+					 tsReal *uvs,
+					 size_t *indices,
+					 tsStatus *status) {
+	tsReal *sin_cos;
+	tsReal normal_cos[3], binormal_sin[3];
+	tsReal radial_segments_inv, tubular_segments_inv, V;
+	size_t i, j, ver_i, ind_i, offset, a, b, c, d, tubular_segments_orig,
+	       skipped;
+
+	if (!*tubular_segments)
+		TS_RETURN_0(status, TS_NUM_POINTS, "tubular segments == 0")
+	if (radial_segments < 3)
+		TS_RETURN_1(status, TS_NUM_POINTS,
+					"radial segments (%lu) < 3",
+					radial_segments)
+
+	/* Allocate arrays for later.
+	 * Always contains sin value first, then cos value. */
+	sin_cos = (tsReal *) malloc(2 * (radial_segments + 1) * sizeof(tsReal));
+	if (!sin_cos) TS_RETURN_0(status, TS_MALLOC, "out of memory")
+
+	/* Precalculated loop values. */
+	tubular_segments_orig = *tubular_segments;
+	radial_segments_inv = 1.0 / (tsReal) radial_segments;
+	tubular_segments_inv = 1.0 / (tsReal) tubular_segments_orig;
+	ver_i = ind_i = skipped = 0;
+	radius = fabs(radius);
+
+	/* Precompute sin and cos values. */
+	for (i = 0; i <= radial_segments; i++) {
+		V = i * radial_segments_inv * TS_PI * 2;
+		sin_cos[2 * i] = sin(V);
+		sin_cos[2 * i + 1] = cos(V);
+	}
+
+	/* The main loop, going over each tubular segment. */
+	for (i = 0; i <= tubular_segments_orig; i++) {
+
+		if (i > 0 && ts_distance(frames[i-1].position,
+								 frames[i].position, 3) <= TS_LENGTH_ZERO) {
+			++skipped;
+			continue;
+		}
+
+		for (j = 0; j <= radial_segments; j++) {
+			/* Generate radial segment of frame i for segment j. */
+			offset = ver_i * 3;
+			/* normal = cos[j] * rnormal + sin[j] * rbinormal */
+			ts_vec_mul(frames[i].normal, 3, sin_cos[2 * j + 1], normal_cos);
+			ts_vec_mul(frames[i].binormal, 3, sin_cos[2 * j], binormal_sin);
+			ts_vec_add(normal_cos, binormal_sin, 3, normals + offset);
+			ts_vec_mul(normals + offset, 3, radius, normals + offset);
+
+			ts_vec_add(frames[i].position, normals + offset, 3,
+					   vertices + offset);
+			ts_vec4_set(tangents + ver_i * 4, frames[i].tangent, 3);
+			tangents[ver_i * 4 + 3] = (tsReal) 1.0;
+
+			/* normal vector needs to be normalized */
+			ts_vec_norm(normals + offset, 3, normals + offset);
+
+			/* UV coordinates */
+			uvs[ver_i * 2] = j * radial_segments_inv;
+			uvs[ver_i * 2 + 1] = (i - skipped) * tubular_segments_inv;
+
+			/* indices (faces) */
+			if (i-skipped >= 1 && j >= 1) {
+				a = (radial_segments + 1) * (i - skipped - 1) + (j - 1);
+				b = (radial_segments + 1) * (i - skipped) + (j - 1);
+				c = (radial_segments + 1) * (i - skipped) + j;
+				d = (radial_segments + 1) * (i - skipped - 1) + j;
+
+				indices[ind_i++] = a;
+				indices[ind_i++] = d;
+				indices[ind_i++] = b;
+				indices[ind_i++] = b;
+				indices[ind_i++] = d;
+				indices[ind_i++] = c;
+
+			}
+
+			++ver_i;
+		}
+	}
+
+	*tubular_segments -= skipped;
+
+	if (sin_cos) free(sin_cos);
+	TS_RETURN_SUCCESS(status)
 }
 /*! @} */
 

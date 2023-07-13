@@ -502,6 +502,178 @@ tinyspline::Vec4::toString() const
 
 
 
+/*! @name Geometry
+ *
+ * @{
+ */
+tinyspline::TubularMesh::TubularMesh()
+: m_vectors(nullptr),
+  m_indices(nullptr),
+  m_tubularSegments(0),
+  m_radialSegments(0),
+  m_radius(0)
+{};
+
+tinyspline::TubularMesh::TubularMesh(real *vectors,
+									 size_t *indices,
+									 size_t tubularSegments,
+									 size_t radialSegments,
+									 real radius)
+: m_vectors(vectors),
+  m_indices(indices),
+  m_tubularSegments(tubularSegments),
+  m_radialSegments(radialSegments),
+  m_radius(radius)
+{}
+
+tinyspline::TubularMesh::TubularMesh(const TubularMesh &other)
+: m_vectors(nullptr),
+  m_indices(nullptr),
+  m_tubularSegments(other.m_tubularSegments),
+  m_radialSegments(other.m_radialSegments),
+  m_radius(other.m_radius)
+{
+	size_t vSize, iSize;
+	size(m_tubularSegments, m_radialSegments, vSize, iSize);
+	initArrays(vSize, iSize, &m_vectors, &m_indices);
+	std::copy(other.m_vectors, other.m_vectors + vSize, m_vectors);
+	std::copy(other.m_indices, other.m_indices + iSize, m_indices);
+};
+
+tinyspline::TubularMesh::TubularMesh(TubularMesh &&other)
+: m_vectors(other.m_vectors),
+  m_indices(other.m_indices),
+  m_tubularSegments(other.m_tubularSegments),
+  m_radialSegments(other.m_radialSegments),
+  m_radius(other.m_radius)
+{
+	other.m_vectors = nullptr;
+	other.m_indices = nullptr;
+	other.m_tubularSegments = other.m_radialSegments = 0;
+	other.m_radius = 0;
+}
+tinyspline::TubularMesh::~TubularMesh()
+{
+	delete [] m_vectors;
+	delete [] m_indices;
+	m_tubularSegments = m_radialSegments = 0;
+	m_radius = 0;
+};
+
+tinyspline::TubularMesh &
+tinyspline::TubularMesh::operator=(const TubularMesh &other)
+{
+	if (&other != this) {
+		size_t vSize, iSize;
+		size(other.m_tubularSegments, other.m_radialSegments, vSize, iSize);
+		initArrays(vSize, iSize, &m_vectors, &m_indices);
+		std::copy(other.m_vectors, other.m_vectors + vSize, m_vectors);
+		std::copy(other.m_indices, other.m_indices + iSize, m_indices);
+
+		m_tubularSegments = other.m_tubularSegments;
+		m_radialSegments = other.m_radialSegments;
+		m_radius = other.m_radius;
+	}
+	return *this;
+}
+tinyspline::TubularMesh &
+tinyspline::TubularMesh::operator=(TubularMesh &&other)
+{
+	if (&other != this) {
+		delete [] m_vectors;
+		delete [] m_indices;
+		m_vectors = other.m_vectors;
+		m_indices = other.m_indices;
+		m_tubularSegments = other.m_tubularSegments;
+		m_radialSegments = other.m_radialSegments;
+		m_radius = other.m_radius;
+		other.m_vectors = nullptr;
+		other.m_indices = nullptr;
+		other.m_tubularSegments = other.m_radialSegments = 0;
+		other.m_radius = 0;
+	}
+	return *this;
+}
+
+std::vector<tinyspline::real>
+tinyspline::TubularMesh::vertices() const
+{
+	return {m_vectors,
+			m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1) * 3};
+}
+
+std::vector<tinyspline::real>
+tinyspline::TubularMesh::normals() const
+{
+	return {m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1) * 3,
+			m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1)
+		     * (3 + 3)};
+}
+
+std::vector<tinyspline::real>
+tinyspline::TubularMesh::tangents() const
+{
+	return {m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1)
+	         * (3 + 3),
+			m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1)
+			 * (3 + 3 + 4)};
+}
+
+std::vector<tinyspline::real> tinyspline::TubularMesh::uvs() const
+{
+	return {m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1)
+	         * (3 + 3 + 4),
+			m_vectors + (m_tubularSegments + 1) * (m_radialSegments + 1)
+			 * (3 + 3 + 4 + 2)};
+}
+
+std::vector<size_t> tinyspline::TubularMesh::indices() const
+{
+	return {m_indices, m_indices + m_tubularSegments * m_radialSegments * 6};
+}
+
+size_t
+tinyspline::TubularMesh::tubularSegments() const
+{
+	return m_tubularSegments;
+}
+
+size_t
+tinyspline::TubularMesh::radialSegments() const
+{
+	return m_radialSegments;
+}
+
+tinyspline::real
+tinyspline::TubularMesh::radius() const
+{
+	return m_radius;
+}
+
+void
+tinyspline::TubularMesh::size(size_t tubularSegments,
+							  size_t radialSegments,
+							  size_t &vectorsSize,
+							  size_t &indicesSize)
+{
+	vectorsSize = (tubularSegments + 1) * (radialSegments + 1)
+			      * (3 + 3 + 4 + 2);
+	indicesSize = tubularSegments * radialSegments * 6;
+}
+
+void tinyspline::TubularMesh::initArrays(size_t vectorsSize,
+										 size_t indicesSize,
+										 real **vectors,
+										 size_t **indices)
+{
+	*vectors = new real[vectorsSize];
+	try { *indices = new size_t[indicesSize]; }
+	catch (const std::bad_alloc&) { delete [] *vectors; throw; }
+}
+/*! @} */
+
+
+
 /*! @name Frame
  *
  * @{
@@ -645,6 +817,36 @@ tinyspline::FrameSeq::at(size_t idx) const
 	                     frame.binormal[1],
 	                     frame.binormal[2]);
 	return Frame(position, tangent, normal, binormal);
+}
+
+tinyspline::TubularMesh
+tinyspline::FrameSeq::createTube(size_t tubularSegments,
+								 size_t radialSegments,
+								 real radius) const {
+	real *vectors;
+	size_t *indices;
+	size_t vSize, iSize;
+	TubularMesh::size(tubularSegments, radialSegments, vSize, iSize);
+	TubularMesh::initArrays(vSize, iSize, &vectors, &indices);
+
+	tsStatus status;
+	size_t tubularSegmentsRes = tubularSegments;
+	if (ts_frame_create_tube(m_frames,
+							 &tubularSegmentsRes,
+							 radialSegments,
+							 radius,
+							 vectors,
+							 vectors + (tubularSegments + 1)
+							            * (radialSegments + 1) * 3,
+							 vectors + (tubularSegments + 1)
+							            * (radialSegments + 1) * (3 + 3),
+							 vectors + (tubularSegments + 1)
+							            * (radialSegments + 1) * (3 + 3 + 4),
+							 indices,
+							 &status))
+		throw std::runtime_error(status.message);
+
+	return {vectors, indices, tubularSegmentsRes, radialSegments, radius};
 }
 
 std::string

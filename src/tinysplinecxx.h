@@ -375,6 +375,61 @@ public:
 
 
 
+/*! @name Geometry
+ *
+ * Three-dimensional geometries created from splines.
+ *
+ * @{
+ */
+class TINYSPLINECXX_API TubularMesh {
+public:
+	TubularMesh();
+	TubularMesh(const TubularMesh &other);
+	TubularMesh(TubularMesh &&other);
+	virtual ~TubularMesh();
+
+	TubularMesh &operator=(const TubularMesh &other);
+	TubularMesh &operator=(TubularMesh &&other);
+
+	std::vector<real> vertices() const;  // 3 elements
+	std::vector<real> normals() const;  // 3 elements
+	std::vector<real> tangents() const;  // 4 elements
+	std::vector<real> uvs() const;  // 2 elements
+	std::vector<size_t> indices() const;
+
+	size_t tubularSegments() const;
+	size_t radialSegments() const;
+	real radius() const;
+
+	static void
+	size(size_t tubularSegments,
+	     size_t radialSegments,
+	     size_t &vectorsSize,
+	     size_t &indicesSize);
+
+private:
+	real *m_vectors;  // contains vertices, normals, tangents, uvs
+	size_t *m_indices;
+	size_t m_tubularSegments, m_radialSegments;
+	real m_radius;
+
+	TubularMesh(real *vectors,
+				size_t *indices,
+	            size_t tubularSegments,
+	            size_t radialSegments,
+				real m_radius);
+
+	static void initArrays(size_t tubularSegments,
+						   size_t radialSegments,
+						   real **vectors,
+						   size_t **indices);
+
+	friend class FrameSeq;
+};
+/*! @} */
+
+
+
 /*! @name Spline Framing
  *
  * Wrapper classes for ::tsFrame (::Frame) and sequences of ::tsFrame
@@ -424,6 +479,9 @@ public:
 
 	size_t size() const;
 	Frame at(size_t idx) const;
+	TubularMesh createTube(size_t tubularSegments,
+						   size_t radialSegments,
+						   real radius) const;
 
 	std::string toString() const;
 
